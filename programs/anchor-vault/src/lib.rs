@@ -162,6 +162,14 @@ impl<'info> Payment<'info> {
     }
 
     pub fn withdraw(&mut self, amount: u64) -> Result<()> {
+        require!(amount > 0, VaultError::InvalidAmount);
+
+        let vault_balance: u64 = self.vault.lamports();
+        let rent_exempt: u64 = Rent::get()?.minimum_balance(0);
+
+        require!(vault_balance >= amount, VaultError::InsufficientBalance);
+        require!(vault_balance - rent_exempt >= amount, VaultError:: InsufficientBalanceForRent);
+
         let cpi_program: AccountInfo<'_> = self.system_program.to_account_info();
 
         let cpi_accounts: Transfer<'_> = Transfer {
@@ -236,4 +244,14 @@ pub struct WithdrawEvent {
 pub struct WithdrawAndCloseEvent {
     pub user: Pubkey,
     pub amount: u64
+}
+
+#[error_code]
+pub enum VaultError {
+    #[msg("Amount must be greater than 0")]
+    InvalidAmount,
+    #[msg("Insufficient balance in vault")]
+    InsufficientBalance,
+    #[msg("Withdrawal would leave vault below rent-exempt threshold")]
+    InsufficientBalanceForRent,
 }
